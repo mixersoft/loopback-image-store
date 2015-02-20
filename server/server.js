@@ -16,8 +16,8 @@ app.start = function() {
 };
 
 
-// app.use('/client', loopback.static(__dirname + '/../client'))
-// app.use('/storage', loopback.static(__dirname + '/storage'))
+app.use('/client', loopback.static(__dirname + '/../client'))
+app.use('/storage', loopback.static(__dirname + '/storage'))
 
 // start the server if `$ node server.js`
 if (require.main === module) {
