@@ -17,7 +17,7 @@ app.start = function() {
 
 
 app.use('/client', loopback.static(__dirname + '/../client'))
-app.use('/storage', loopback.static(__dirname + '/storage', { maxAge: '7d' })
+app.use('/storage', loopback.static(__dirname + '/storage', { maxAge: '7d' }))
 
 // start the server if `$ node server.js`
 if (require.main === module) {

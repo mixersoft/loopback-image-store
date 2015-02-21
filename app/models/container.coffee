@@ -19,8 +19,8 @@ PARSE = {
 }
 
 IMG_SERVER = {
-	host: null
-	baseUrl: 'storage'
+	host: 'http://snappi.snaphappi.com'
+	baseUrl: 'svc/storage'
 }
 
 parseRestClient = new Kaiseki(PARSE.appId, PARSE.restApiKey)
@@ -28,7 +28,7 @@ parseRestClient = new Kaiseki(PARSE.appId, PARSE.restApiKey)
 parsePhotoObj = {
 	GetWhere : (where, cb)->
 		params = { where: where }
-		console.log('\n\n GetWhere, params=', params)
+		console.log('GetWhere, params=', params)
 		return parseRestClient['getObjects']( 'PhotoObj'
 			, params
 			, (err, res, photoObjs, success)->
@@ -43,7 +43,7 @@ parsePhotoObj = {
 		)
 			
 	UpdateSrc : (objectId, src, cb)->
-		console.log('\n\n UpdateSrc, objectId=', objectId)
+		console.log('UpdateSrc, data=', {objectId:objectId, src:src} )
 		return parseRestClient.updateObject( 'PhotoObj'
 			, objectId
 			, {
@@ -53,7 +53,7 @@ parsePhotoObj = {
 				if err || !success
 					console.warn err 
 					return cb()
-				console.log('\n\nUPDATED PhotoObj=', body)
+				console.log('UPDATED PhotoObj=', body)
 				return cb()
 		)
 }
@@ -87,14 +87,16 @@ module.exports = (Container)->
 
 		file.UUID = file.name.split('.')[0] #  UUID: CHAR(36) + '/L0/001', need LIKE query for this
 		file.owner = file.container
-		IMG_SERVER.host = ctx.req.headers.host
+
+
+		# IMG_SERVER.host = ctx.req.headers.host
+		# serve files from http://snappi.snaphappi.com/svc/storage over apache2 with auto-render
 		file.src = [IMG_SERVER.host , IMG_SERVER.baseUrl , file.owner , file.name].join('/')
 
 		if fields?.objectId?
 			# tested OK
 			parsePhotoObj.UpdateSrc(fields.objectId.shift(), file.src, next)
 		else 
-			# NOT TESTED
 			console.log "Fields=", fields
 			UUID = fields.UUID.shift() 
 			ownerId = fields.owner.shift()
@@ -105,11 +107,11 @@ module.exports = (Container)->
 				else UUID
 			where = {
 				UUID: whereUUID 
-				src: 'queued'
+				# src: 'queued'
 				owner: { __type: 'Pointer', className: '_User', objectId: ownerId }
 			}
 			parsePhotoObj.GetWhere(where, (photoObjs)->
-				console.log "GetWhere success, photoObjs[0]=", photoObjs[0]
+				console.log "GetWhere success, photoObjs[0]=", _.pick photoObjs[0], ['UUID', 'owner', 'src', 'workorder']
 				parsePhotoObj.UpdateSrc(photoObjs[0].objectId, file.src, next)
 				return
 			)

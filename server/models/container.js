@@ -22,8 +22,8 @@ PARSE = {
 };
 
 IMG_SERVER = {
-  host: null,
-  baseUrl: 'storage'
+  host: 'http://snappi.snaphappi.com',
+  baseUrl: 'svc/storage'
 };
 
 parseRestClient = new Kaiseki(PARSE.appId, PARSE.restApiKey);
@@ -34,7 +34,7 @@ parsePhotoObj = {
     params = {
       where: where
     };
-    console.log('\n\n GetWhere, params=', params);
+    console.log('GetWhere, params=', params);
     return parseRestClient['getObjects']('PhotoObj', params, function(err, res, photoObjs, success) {
       if (err || !success) {
         console.warn('ERROR: Kaiseki.getObjects() error=', err);
@@ -48,7 +48,10 @@ parsePhotoObj = {
     });
   },
   UpdateSrc: function(objectId, src, cb) {
-    console.log('\n\n UpdateSrc, objectId=', objectId);
+    console.log('UpdateSrc, data=', {
+      objectId: objectId,
+      src: src
+    });
     return parseRestClient.updateObject('PhotoObj', objectId, {
       src: src
     }, function(err, res, body, success) {
@@ -56,7 +59,7 @@ parsePhotoObj = {
         console.warn(err);
         return cb();
       }
-      console.log('\n\nUPDATED PhotoObj=', body);
+      console.log('UPDATED PhotoObj=', body);
       return cb();
     });
   }
@@ -85,7 +88,6 @@ module.exports = function(Container) {
     fields = affectedModelInstance.result.fields;
     file.UUID = file.name.split('.')[0];
     file.owner = file.container;
-    IMG_SERVER.host = ctx.req.headers.host;
     file.src = [IMG_SERVER.host, IMG_SERVER.baseUrl, file.owner, file.name].join('/');
     if ((fields != null ? fields.objectId : void 0) != null) {
       parsePhotoObj.UpdateSrc(fields.objectId.shift(), file.src, next);
@@ -96,7 +98,6 @@ module.exports = function(Container) {
       whereUUID = ((ref = ctx.req) != null ? (ref1 = ref.headers) != null ? ref1['X-Image-Identifier'] : void 0 : void 0) ? ctx.req.headers['X-Image-Identifier'] : UUID;
       where = {
         UUID: whereUUID,
-        src: 'queued',
         owner: {
           __type: 'Pointer',
           className: '_User',
@@ -104,7 +105,7 @@ module.exports = function(Container) {
         }
       };
       parsePhotoObj.GetWhere(where, function(photoObjs) {
-        console.log("GetWhere success, photoObjs[0]=", photoObjs[0]);
+        console.log("GetWhere success, photoObjs[0]=", _.pick(photoObjs[0], ['UUID', 'owner', 'src', 'workorder']));
         parsePhotoObj.UpdateSrc(photoObjs[0].objectId, file.src, next);
       });
     }

@@ -1,6 +1,6 @@
 {
   "restApiRoot": "/api",
-  "host": "localhost",
+  "host": "snappi.snaphappi.com",
   "port": 8765,
   "remoting": {
     "context": {
