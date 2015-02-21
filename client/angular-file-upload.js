@@ -422,6 +422,7 @@ app.factory('$fileUploader', [ '$compile', '$rootScope', '$http', '$window', fun
             xhr.open(item.method, item.url, true);
 
             angular.forEach(item.headers, function (value, name) {
+                console.log("header:"+JSON.stringify([value,name])
                 xhr.setRequestHeader(name, value);
             });
 

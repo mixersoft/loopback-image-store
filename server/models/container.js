@@ -30,16 +30,21 @@ parseRestClient = new Kaiseki(PARSE.appId, PARSE.restApiKey);
 
 parsePhotoObj = {
   GetWhere: function(where, cb) {
-    console.log('\n\n GetWhere, where=', where);
-    return parseRestClient.getObject('PhotoObj', null, {
+    var params;
+    params = {
       where: where
-    }, function(err, res, body, success) {
+    };
+    console.log('\n\n GetWhere, params=', params);
+    return parseRestClient['getObjects']('PhotoObj', params, function(err, res, photoObjs, success) {
       if (err || !success) {
-        console.warn(err);
-        return cb();
+        console.warn('ERROR: Kaiseki.getObjects() error=', err);
+        return cb(false);
       }
-      console.log('\n\nPhotoObj=', body);
-      return cb(body);
+      if ((where.UUID != null) && photoObjs.length > 1) {
+        console.warn("WARNING: multiple photoObjs with the same UUID", photoObjs);
+        return cb(false);
+      }
+      return cb(photoObjs);
     });
   },
   UpdateSrc: function(objectId, src, cb) {
@@ -74,7 +79,7 @@ module.exports = function(Container) {
     });
   });
   return Container.afterRemote('upload', function(ctx, affectedModelInstance, next) {
-    var fields, file, ref, where, whereUUID;
+    var UUID, fields, file, ownerId, ref, ref1, where, whereUUID;
     console.log('\n\n afterRemote container.upload', affectedModelInstance.result);
     file = affectedModelInstance.result.files.file.shift();
     fields = affectedModelInstance.result.fields;
@@ -83,23 +88,30 @@ module.exports = function(Container) {
     IMG_SERVER.host = ctx.req.headers.host;
     file.src = [IMG_SERVER.host, IMG_SERVER.baseUrl, file.owner, file.name].join('/');
     if ((fields != null ? fields.objectId : void 0) != null) {
-      parsePhotoObj.UpdateSrc(fields.objectId, file.src, next);
+      parsePhotoObj.UpdateSrc(fields.objectId.shift(), file.src, next);
     } else {
-      whereUUID = ((ref = ctx.headers) != null ? ref['X-Image-Identifier'] : void 0) ? ctx.headers['X-Image-Identifier'] : {
-        "$regex": "\Q^" + file.UUID + "\E",
-        "$options": "i"
-      };
+      console.log("Fields=", fields);
+      UUID = fields.UUID.shift();
+      ownerId = fields.owner.shift();
+      whereUUID = ((ref = ctx.req) != null ? (ref1 = ref.headers) != null ? ref1['X-Image-Identifier'] : void 0 : void 0) ? ctx.req.headers['X-Image-Identifier'] : UUID;
       where = {
         UUID: whereUUID,
+        src: 'queued',
         owner: {
-          __type: "Pointer",
-          className: "User",
-          objectId: file.owner
+          __type: 'Pointer',
+          className: '_User',
+          objectId: ownerId
         }
       };
-      parsePhotoObj.GetWhere(where, function(photoObj) {
-        return parsePhotoObj.UpdateSrc(photoObj.objectId, file.src, next);
+      parsePhotoObj.GetWhere(where, function(photoObjs) {
+        console.log("GetWhere success, photoObjs[0]=", photoObjs[0]);
+        parsePhotoObj.UpdateSrc(photoObjs[0].objectId, file.src, next);
       });
     }
   });
 };
+
+
+/* 
+ * 	Test Parse REST API call on bootstrap
+ */

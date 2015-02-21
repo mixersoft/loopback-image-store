@@ -27,19 +27,19 @@ parseRestClient = new Kaiseki(PARSE.appId, PARSE.restApiKey)
 
 parsePhotoObj = {
 	GetWhere : (where, cb)->
-		console.log('\n\n GetWhere, where=', where)
-		return parseRestClient.getObject( 'PhotoObj'
-			, null
-			, {
-				where: where
-			}
-			, (err, res, body, success)->
+		params = { where: where }
+		console.log('\n\n GetWhere, params=', params)
+		return parseRestClient['getObjects']( 'PhotoObj'
+			, params
+			, (err, res, photoObjs, success)->
 				if err || !success
-					console.warn err 
-					return cb()
-				console.log('\n\nPhotoObj=', body)
-				return cb(body)
-				# return parsePhotoObj.UpdateSrc(body.objectId, file.src, cb)
+					console.warn 'ERROR: Kaiseki.getObjects() error=', err 
+					return cb(false)
+				if where.UUID? && photoObjs.length > 1 
+					console.warn "WARNING: multiple photoObjs with the same UUID", photoObjs
+					return cb(false)
+				# console.log('\n\nPhotoObj=', photoObjs)
+				return cb(photoObjs)
 		)
 			
 	UpdateSrc : (objectId, src, cb)->
@@ -81,7 +81,7 @@ module.exports = (Container)->
 	Container.afterRemote 'upload', (ctx, affectedModelInstance, next)->
 		console.log '\n\n afterRemote container.upload', affectedModelInstance.result
 		# file=[{"container":"container1","name":"IMG_0799.PNG","type":"image/png"}]
-		# fields={owner, objectId}		
+		# fields={owner, objectId, UUID}		
 		file = affectedModelInstance.result.files.file.shift()
 		fields = affectedModelInstance.result.fields
 
@@ -92,23 +92,44 @@ module.exports = (Container)->
 
 		if fields?.objectId?
 			# tested OK
-			parsePhotoObj.UpdateSrc(fields.objectId, file.src, next)
+			parsePhotoObj.UpdateSrc(fields.objectId.shift(), file.src, next)
 		else 
 			# NOT TESTED
+			console.log "Fields=", fields
+			UUID = fields.UUID.shift() 
+			ownerId = fields.owner.shift()
 			whereUUID = 
-				if ctx.headers?['X-Image-Identifier'] 
-				then ctx.headers['X-Image-Identifier'] 
-				else { "$regex": "\Q^" + file.UUID + "\E", "$options":"i"}
+				if ctx.req?.headers?['X-Image-Identifier'] 
+				then ctx.req.headers['X-Image-Identifier'] 
+				# else { "$regex": "^" + UUID , "$options":"i"}
+				else UUID
 			where = {
-				UUID: whereUUID  
-				owner: 
-					__type: "Pointer"
-					className: "User"
-					objectId: file.owner
+				UUID: whereUUID 
+				src: 'queued'
+				owner: { __type: 'Pointer', className: '_User', objectId: ownerId }
 			}
-			parsePhotoObj.GetWhere(where,  (photoObj)->
-				parsePhotoObj.UpdateSrc(photoObj.objectId, file.src, next)
+			parsePhotoObj.GetWhere(where, (photoObjs)->
+				console.log "GetWhere success, photoObjs[0]=", photoObjs[0]
+				parsePhotoObj.UpdateSrc(photoObjs[0].objectId, file.src, next)
+				return
 			)
 		return
 
 
+### 
+# 	Test Parse REST API call on bootstrap
+###
+
+# where = {
+# 	UUID: '2A456415-B1AE-424A-9795-A0625A768EBD/L0/001'
+# 	src: 'queued'
+# 	owner: { __type: 'Pointer', className: '_User', objectId: 'DEQBCEektV' }
+# }
+# # where = null
+# objectId = if 0 then 'o2qOQz2gPZ' else null
+# parsePhotoObj.GetWhere(objectId, where,  (photoObj)->
+# 			return console.log ("FAILED") if !photoObj
+# 			console.log "GetWhere success, photoObj=", photoObj 
+# 			# parsePhotoObj.UpdateSrc(photoObj.objectId, file.src, next)
+# 			return
+# 	)
