@@ -69,7 +69,8 @@ module.exports = function(Container) {
   Container.beforeRemote('upload', function(ctx, skip, next) {
     var options, params;
     console.log('\n\nbeforeRemote Container.upload');
-    console.log(ctx.req.params);
+    console.log("params", ctx.req.params);
+    console.log("headers", ctx.req.headers);
     params = ctx.req.params;
     options = {
       name: params.container

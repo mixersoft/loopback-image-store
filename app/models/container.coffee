@@ -63,7 +63,8 @@ module.exports = (Container)->
 	Container.beforeRemote 'upload', (ctx, skip, next)->
 		# create container if necessary
 		console.log '\n\nbeforeRemote Container.upload'
-		console.log ctx.req.params
+		console.log "params", ctx.req.params
+		console.log "headers", ctx.req.headers
 
 		# check if container exists
 		params = ctx.req.params
