@@ -83,31 +83,39 @@ module.exports = function(Container) {
     });
   });
   return Container.afterRemote('upload', function(ctx, affectedModelInstance, next) {
-    var UUID, fields, file, ownerId, ref, ref1, where, whereUUID;
+    var fields, file, where;
     console.log('\n\n afterRemote container.upload', affectedModelInstance.result);
     file = affectedModelInstance.result.files.file.shift();
     fields = affectedModelInstance.result.fields;
-    file.UUID = file.name.split('.')[0];
+    if (!file.UUID) {
+      file.UUID = file.name.split('.')[0];
+    }
     file.owner = file.container;
     file.src = [IMG_SERVER.host, IMG_SERVER.baseUrl, file.owner, file.name].join('/');
-    if ((fields != null ? fields.objectId : void 0) != null) {
+    if (!_.isEmpty(fields != null ? fields.objectId : void 0)) {
       parsePhotoObj.UpdateSrc(fields.objectId.shift(), file.src, next);
     } else {
-      console.log("Fields=", fields);
-      UUID = fields.UUID.shift();
-      ownerId = fields.owner.shift();
-      whereUUID = ((ref = ctx.req) != null ? (ref1 = ref.headers) != null ? ref1['X-Image-Identifier'] : void 0 : void 0) ? ctx.req.headers['X-Image-Identifier'] : UUID;
+      console.log("file=", file);
       where = {
-        UUID: whereUUID,
+        UUID: file.UUID,
         owner: {
           __type: 'Pointer',
           className: '_User',
-          objectId: ownerId
+          objectId: file.owner
         }
       };
       parsePhotoObj.GetWhere(where, function(photoObjs) {
         console.log("GetWhere success, photoObjs[0]=", _.pick(photoObjs[0], ['UUID', 'owner', 'src', 'workorder']));
-        parsePhotoObj.UpdateSrc(photoObjs[0].objectId, file.src, next);
+        if (_.isEmpty(photoObjs)) {
+          return next();
+        }
+        parsePhotoObj.UpdateSrc(photoObjs[0].objectId, file.src, function() {
+          if (ctx.req.headers['content-type'] === 'image/jpeg') {
+            return ctx.res.set('Location', file.src).status(201).send();
+          } else {
+            return next();
+          }
+        });
       });
     }
   });

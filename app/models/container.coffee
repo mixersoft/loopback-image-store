@@ -86,7 +86,7 @@ module.exports = (Container)->
 		file = affectedModelInstance.result.files.file.shift()
 		fields = affectedModelInstance.result.fields
 
-		file.UUID = file.name.split('.')[0] #  UUID: CHAR(36) + '/L0/001', need LIKE query for this
+		file.UUID = file.name.split('.')[0] if !file.UUID #  UUID = CHAR(36) + '/L0/001'
 		file.owner = file.container
 
 
@@ -94,26 +94,25 @@ module.exports = (Container)->
 		# serve files from http://snappi.snaphappi.com/svc/storage over apache2 with auto-render
 		file.src = [IMG_SERVER.host , IMG_SERVER.baseUrl , file.owner , file.name].join('/')
 
-		if fields?.objectId?
+		if !_.isEmpty fields?.objectId
 			# tested OK
 			parsePhotoObj.UpdateSrc(fields.objectId.shift(), file.src, next)
 		else 
-			console.log "Fields=", fields
-			UUID = fields.UUID.shift() 
-			ownerId = fields.owner.shift()
-			whereUUID = 
-				if ctx.req?.headers?['X-Image-Identifier'] 
-				then ctx.req.headers['X-Image-Identifier'] 
-				# else { "$regex": "^" + UUID , "$options":"i"}
-				else UUID
+			console.log "file=", file
 			where = {
-				UUID: whereUUID 
+				UUID: file.UUID
 				# src: 'queued'
-				owner: { __type: 'Pointer', className: '_User', objectId: ownerId }
+				owner: { __type: 'Pointer', className: '_User', objectId: file.owner }
 			}
 			parsePhotoObj.GetWhere(where, (photoObjs)->
 				console.log "GetWhere success, photoObjs[0]=", _.pick photoObjs[0], ['UUID', 'owner', 'src', 'workorder']
-				parsePhotoObj.UpdateSrc(photoObjs[0].objectId, file.src, next)
+				return next() if _.isEmpty photoObjs
+				parsePhotoObj.UpdateSrc(photoObjs[0].objectId, file.src, ()->
+					if ctx.req.headers['content-type'] == 'image/jpeg'
+						return ctx.res.set('Location', file.src).status(201).send()
+					else 
+						return next()
+				)
 				return
 			)
 		return

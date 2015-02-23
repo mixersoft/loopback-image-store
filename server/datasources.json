@@ -7,6 +7,12 @@
     "name": "storage",
     "connector": "loopback-component-storage",
     "provider":"filesystem",
-    "root":"../svc/storage"
+    "root":"../svc/storage",
+    "_options": {
+      "getFileName":"",
+      "allowedContentTypes":"",
+      "maxFileSize":"",
+      "acl": ""
+    }
   }
 }

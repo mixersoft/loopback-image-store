@@ -8,14 +8,12 @@ angular.module('app', ['angularFileUpload'])
     var uploader = $scope.uploader = $fileUploader.create({
       scope: $scope,                          // to automatically update the html. Default: $rootScope
       url: '/api/containers/DEQBCEektV/upload',
-      headers: 
-        'X-Image-Identifier': '2A456415-B1AE-424A-9795-A0625A768EBD/L0/001'
+      headers: {
+        'X-Image-Identifier': 'XXX-2A456415-B1AE-424A-9795-A0625A768EBD/L0/001',
+        'X-Container-Identifier' : 'DEQBCEektV'
+      },
       formData: [
-        { 
-          owner: 'DEQBCEektV'
-          UUID36: '2A456415-B1AE-424A-9795-A0625A768EBD'
-          UUID: '2A456415-B1AE-424A-9795-A0625A768EBD/L0/001'
-        }
+        { }
       ],
       filters: [
         function (item) {                    // first user filter
