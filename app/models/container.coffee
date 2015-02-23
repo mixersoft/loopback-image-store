@@ -62,16 +62,19 @@ module.exports = (Container)->
 
 	Container.beforeRemote 'upload', (ctx, skip, next)->
 		# create container if necessary
-		console.log '\n\nbeforeRemote Container.upload'
-		console.log "params", ctx.req.params
-		console.log "headers", ctx.req.headers
+		# console.log '\n\nbeforeRemote Container.upload'
+		# console.log "params", ctx.req.params
+		# console.log "headers", ctx.req.headers
 
 		# check if container exists
 		params = ctx.req.params
 		options = {
 			name: params.container
+			mode: 0o777
+			thumbs: true
 		}
-		Container.createContainer options, (err, skip)->
+		# create folder
+		Container.createContainer options, (err, container)->
 			if err && !err.code == 'EEXIST'
 				console.warn err 
 			return next()
@@ -80,7 +83,7 @@ module.exports = (Container)->
 		
 
 	Container.afterRemote 'upload', (ctx, affectedModelInstance, next)->
-		console.log '\n\n afterRemote container.upload', affectedModelInstance.result
+		# console.log '\n\n afterRemote container.upload', affectedModelInstance.result
 		# file=[{"container":"container1","name":"IMG_0799.PNG","type":"image/png"}]
 		# fields={owner, objectId, UUID}		
 		file = affectedModelInstance.result.files.file.shift()
@@ -116,6 +119,7 @@ module.exports = (Container)->
 				return
 			)
 		return
+
 
 
 ### 

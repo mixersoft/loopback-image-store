@@ -68,14 +68,13 @@ parsePhotoObj = {
 module.exports = function(Container) {
   Container.beforeRemote('upload', function(ctx, skip, next) {
     var options, params;
-    console.log('\n\nbeforeRemote Container.upload');
-    console.log("params", ctx.req.params);
-    console.log("headers", ctx.req.headers);
     params = ctx.req.params;
     options = {
-      name: params.container
+      name: params.container,
+      mode: 0x1ff,
+      thumbs: true
     };
-    Container.createContainer(options, function(err, skip) {
+    Container.createContainer(options, function(err, container) {
       if (err && !err.code === 'EEXIST') {
         console.warn(err);
       }
@@ -84,7 +83,6 @@ module.exports = function(Container) {
   });
   return Container.afterRemote('upload', function(ctx, affectedModelInstance, next) {
     var fields, file, where;
-    console.log('\n\n afterRemote container.upload', affectedModelInstance.result);
     file = affectedModelInstance.result.files.file.shift();
     fields = affectedModelInstance.result.fields;
     if (!file.UUID) {

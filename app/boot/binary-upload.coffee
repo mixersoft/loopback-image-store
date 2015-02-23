@@ -7,14 +7,39 @@
 ###
 
 _ = require('lodash')
+path = require('path')
+fs = require('fs')
 StorageHandler = require('../../node_modules/loopback-component-storage/lib//storage-handler');
-
 
 module.exports = (app)->
 	Container = app.models.Container
 	StorageService = Container.getDataSource().connector
-	# console.log 'keys', _.keys Container
+	FileSystemProvider = StorageService.client
 
+
+
+	## override createContainer, change mode to 0777 and create .thumbs
+	FileSystemProvider.createContainer = (options, cb)->
+		FileSystemProvider.__proto__.createContainer.apply this, [
+			options, 
+			(err, container)->
+				return cb && cb(err) if err 
+				try
+					dir = path.join(FileSystemProvider.root, container.name);
+					if options.mode == 0o777
+						fs.chmodSync(dir, 511)
+					if options.thumbs
+						thumbs = dir + '/.thumbs'
+						fs.mkdirSync(thumbs, 511)
+						fs.chmodSync(thumbs, 511)	
+					cb && cb(null, container);  		
+				catch err
+					cb && cb(err, container);
+				return
+		]
+		return
+
+	# get filename with extension
 	getFilename = (UUID, mime)->
 		parts = [UUID.replace(/\//g,'_')]
 		switch mime
@@ -29,52 +54,53 @@ module.exports = (app)->
 			cb = options
 			options = {}
 
-		if req.headers['content-type'] != 'image/jpeg'
-			console.log "\n >>> multipartUpload ", arguments
-			return handler.multipartUpload.apply this, arguments
+		switch req.headers['content-type']
+			when 'multipart/form-data'
+				# console.log "\n >>> multipartUpload ", arguments
+				return handler.multipartUpload.apply this, arguments
+			when 'image/jpeg', 'image/png'
+				console.log "\n >>> binaryUpload!!!"
+				# image/jpeg, POST binary file upload
+				console.log('provider=', provider);
+				console.log('params=', req.params);
+				console.log('headers=', req.headers);
 
-		console.log "\n >>> binaryUpload!!!"
-		# image/jpeg, POST binary file upload
-		console.log('provider=', provider);
-		console.log('params=', req.params);
-		console.log('headers=', req.headers);
+				file = {
+					container: req.headers['x-container-identifier']
+					UUID: req.headers['x-image-identifier']
+					name: getFilename( req.headers['x-image-identifier'], req.headers['content-type'] )
+					type: req.headers['content-type']
+				}
+				# provider instanceof FileSystemProvider
 
-		file = {
-			container: req.headers['x-container-identifier']
-			UUID: req.headers['x-image-identifier']
-			name: getFilename( req.headers['x-image-identifier'], req.headers['content-type'] )
-			type: req.headers['content-type']
-		}
-		# provider instanceof FileSystemProvider
+				files = fields = {}
+				req.on 'end', ()->
+					writer.end()
+					# endFunc()
+					fields = {
+						owner: [file.container]
+						objectId: []
+						UUID: [file.UUID]
+					}
+					files = {
+						file: [file]
+					}
+					cb && cb(null, {files: files, fields: fields});
+					return 
 
-		files = fields = {}
-		req.on 'end', ()->
-			writer.end()
-			# endFunc()
-			fields = {
-				owner: [file.container]
-				objectId: []
-				UUID: [file.UUID]
-			}
-			files = {
-				file: [file]
-			}
-			cb && cb(null, {files: files, fields: fields});
-			return 
-
-		try
-			uploadParams =  {
-				container: file.container, 
-				remote: file.name, 
-				contentType: file.type
-			}
-			uploadParams['acl'] = file['acl'] if file['acl']?
-			writer = provider.upload(uploadParams) # = fs.createWriteStream()
-			req.pipe writer, {end:false}
-			return
-		catch err
-			cb && cb(err, {files: files, fields: fields});
-			return
+				try
+					uploadParams =  {
+						container: file.container, 
+						remote: file.name, 
+						contentType: file.type
+					}
+					uploadParams['acl'] = file['acl'] if file['acl']?
+					writer = provider.upload(uploadParams) # = fs.createWriteStream()
+					req.pipe writer, {end:false}
+					return
+				catch err
+					cb && cb(err, {files: files, fields: fields});
+					return
 
 		return # end binaryUpload()
 
@@ -83,4 +109,21 @@ module.exports = (app)->
 	handler = StorageHandler
 	handler.multipartUpload = handler.upload
 	handler.upload = handler.binaryUpload = binaryUpload
+
+
+
 	return
+
+
+	## test, createContainer override		
+	# opt = {
+	# 	name: 'test-abc'
+	# 	mode: 0o777
+	# 	thumbs: true
+	# }
+	# Container.createContainer opt, (err, container)->
+	# 	if err && !err.code == 'EEXIST'
+	# 		console.warn err 
+	# 	return 
+
+
