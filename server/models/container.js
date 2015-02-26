@@ -59,7 +59,6 @@ parsePhotoObj = {
         console.warn(err);
         return cb();
       }
-      console.log('UPDATED PhotoObj=', body);
       return cb();
     });
   }
@@ -82,7 +81,7 @@ module.exports = function(Container) {
     });
   });
   return Container.afterRemote('upload', function(ctx, affectedModelInstance, next) {
-    var fields, file, where;
+    var fields, file, params, where;
     file = affectedModelInstance.result.files.file.shift();
     fields = affectedModelInstance.result.fields;
     if (!file.UUID) {
@@ -92,6 +91,21 @@ module.exports = function(Container) {
     file.src = [IMG_SERVER.host, IMG_SERVER.baseUrl, file.owner, file.name].join('/');
     if (!_.isEmpty(fields != null ? fields.objectId : void 0)) {
       parsePhotoObj.UpdateSrc(fields.objectId.shift(), file.src, next);
+    } else if ('cloudCode') {
+      params = _.pick(file, ['container', 'UUID', 'src']);
+      console.log('>>> cloudCode params=', params);
+      parseRestClient['cloudRun']('photo_updateSrc', params, function(err, resp, body, success) {
+        if (err || !success) {
+          console.warn('ERROR: Kaiseki.cloudRun(photo_updateSrc) error=', err);
+          return next(err);
+        }
+        console.log((body != null ? body['result'] : void 0) || body || res);
+        if (ctx.req.headers['content-type'] === 'image/jpeg') {
+          return ctx.res.set('Location', file.src).status(201).send();
+        } else {
+          return next();
+        }
+      });
     } else {
       console.log("file=", file);
       where = {
@@ -103,7 +117,6 @@ module.exports = function(Container) {
         }
       };
       parsePhotoObj.GetWhere(where, function(photoObjs) {
-        console.log("GetWhere success, photoObjs[0]=", _.pick(photoObjs[0], ['UUID', 'owner', 'src', 'workorder']));
         if (_.isEmpty(photoObjs)) {
           return next();
         }

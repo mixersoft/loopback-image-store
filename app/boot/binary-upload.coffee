@@ -54,16 +54,13 @@ module.exports = (app)->
 			cb = options
 			options = {}
 
-		switch req.headers['content-type']
-			when 'multipart/form-data'
-				# console.log "\n >>> multipartUpload ", arguments
+		contentType = req.headers['content-type']
+		if /^multipart\/form-data/.test( contentType )
+				console.log "\n >>> multipartUpload ", _.pick req, ['params', 'headers']
 				return handler.multipartUpload.apply this, arguments
-			when 'image/jpeg', 'image/png'
-				console.log "\n >>> binaryUpload!!!"
+		if /image\/(jpeg|png)/.test( contentType )
+				# console.log "\n >>> binaryUpload ", _.pick req, ['params', 'headers']
 				# image/jpeg, POST binary file upload
-				console.log('provider=', provider);
-				console.log('params=', req.params);
-				console.log('headers=', req.headers);
 
 				file = {
 					container: req.headers['x-container-identifier']

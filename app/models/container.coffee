@@ -53,7 +53,7 @@ parsePhotoObj = {
 				if err || !success
 					console.warn err 
 					return cb()
-				console.log('UPDATED PhotoObj=', body)
+				# console.log('UPDATED PhotoObj=', body)
 				return cb()
 		)
 }
@@ -100,6 +100,22 @@ module.exports = (Container)->
 		if !_.isEmpty fields?.objectId
 			# tested OK
 			parsePhotoObj.UpdateSrc(fields.objectId.shift(), file.src, next)
+		else if 'cloudCode'
+			params = _.pick file, ['container', 'UUID', 'src']
+			console.log '>>> cloudCode params=', params
+			parseRestClient['cloudRun']( 
+				'photo_updateSrc' 
+				, params
+				, (err, resp, body, success)->
+						if err || !success
+							console.warn 'ERROR: Kaiseki.cloudRun(photo_updateSrc) error=', err 
+							return next(err)
+						console.log body?['result'] || body || res
+						if ctx.req.headers['content-type'] == 'image/jpeg'
+							return ctx.res.set('Location', file.src).status(201).send()
+						else 
+							return next()
+			)
 		else 
 			console.log "file=", file
 			where = {
@@ -108,7 +124,7 @@ module.exports = (Container)->
 				owner: { __type: 'Pointer', className: '_User', objectId: file.owner }
 			}
 			parsePhotoObj.GetWhere(where, (photoObjs)->
-				console.log "GetWhere success, photoObjs[0]=", _.pick photoObjs[0], ['UUID', 'owner', 'src', 'workorder']
+				# console.log "GetWhere success, photoObjs[0]=", _.pick photoObjs[0], ['UUID', 'owner', 'src', 'workorder']
 				return next() if _.isEmpty photoObjs
 				parsePhotoObj.UpdateSrc(photoObjs[0].objectId, file.src, ()->
 					if ctx.req.headers['content-type'] == 'image/jpeg'

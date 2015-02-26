@@ -58,64 +58,61 @@ module.exports = function(app) {
     return parts.join('.');
   };
   binaryUpload = function(provider, req, res, options, cb) {
-    var err, fields, file, files, uploadParams, writer;
+    var contentType, err, fields, file, files, uploadParams, writer;
     if (!cb && _.isFunction(options)) {
       cb = options;
       options = {};
     }
-    switch (req.headers['content-type']) {
-      case 'multipart/form-data':
-        return handler.multipartUpload.apply(this, arguments);
-      case 'image/jpeg':
-      case 'image/png':
-        console.log("\n >>> binaryUpload!!!");
-        console.log('provider=', provider);
-        console.log('params=', req.params);
-        console.log('headers=', req.headers);
-        file = {
-          container: req.headers['x-container-identifier'],
-          UUID: req.headers['x-image-identifier'],
-          name: getFilename(req.headers['x-image-identifier'], req.headers['content-type']),
-          type: req.headers['content-type']
+    contentType = req.headers['content-type'];
+    if (/^multipart\/form-data/.test(contentType)) {
+      console.log("\n >>> multipartUpload ", _.pick(req, ['params', 'headers']));
+      return handler.multipartUpload.apply(this, arguments);
+    }
+    if (/image\/(jpeg|png)/.test(contentType)) {
+      file = {
+        container: req.headers['x-container-identifier'],
+        UUID: req.headers['x-image-identifier'],
+        name: getFilename(req.headers['x-image-identifier'], req.headers['content-type']),
+        type: req.headers['content-type']
+      };
+      files = fields = {};
+      req.on('end', function() {
+        writer.end();
+        fields = {
+          owner: [file.container],
+          objectId: [],
+          UUID: [file.UUID]
         };
-        files = fields = {};
-        req.on('end', function() {
-          writer.end();
-          fields = {
-            owner: [file.container],
-            objectId: [],
-            UUID: [file.UUID]
-          };
-          files = {
-            file: [file]
-          };
-          cb && cb(null, {
-            files: files,
-            fields: fields
-          });
+        files = {
+          file: [file]
+        };
+        cb && cb(null, {
+          files: files,
+          fields: fields
         });
-        try {
-          uploadParams = {
-            container: file.container,
-            remote: file.name,
-            contentType: file.type
-          };
-          if (file['acl'] != null) {
-            uploadParams['acl'] = file['acl'];
-          }
-          writer = provider.upload(uploadParams);
-          req.pipe(writer, {
-            end: false
-          });
-          return;
-        } catch (_error) {
-          err = _error;
-          cb && cb(err, {
-            files: files,
-            fields: fields
-          });
-          return;
+      });
+      try {
+        uploadParams = {
+          container: file.container,
+          remote: file.name,
+          contentType: file.type
+        };
+        if (file['acl'] != null) {
+          uploadParams['acl'] = file['acl'];
         }
+        writer = provider.upload(uploadParams);
+        req.pipe(writer, {
+          end: false
+        });
+        return;
+      } catch (_error) {
+        err = _error;
+        cb && cb(err, {
+          files: files,
+          fields: fields
+        });
+        return;
+      }
     }
   };
   handler = StorageHandler;

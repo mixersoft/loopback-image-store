@@ -31,3 +31,8 @@ http://files.parsetfss.com/71cef948-2ad9-4e4a-9d90-499bad3149c0/tfss-b51da11f-00
 
 
 
+curl -X POST -H "Content-Type: image/jpeg" \
+	-H  'X-Image-Identifier: XXX-2A456415-B1AE-424A-9795-A0625A768EBD/L0/001' \
+	-H  'X-Container-Identifier: DEQBCEektV' \
+	--data-binary '@./svc/storage/DEQBCEektV/IMG_0800.PNG' \
+	http://127.0.0.1:8765/upload

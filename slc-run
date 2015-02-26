@@ -1,6 +1,6 @@
-nvm use stable
+#nvm use stable
 # production
-slc run --cluster=CPU --detach --log=./log/nodejs-uploader.log
+slc run --cluster=CPU --detach --log=./log/loopback-image-storage.log
 
 # debug
 # slc run 
