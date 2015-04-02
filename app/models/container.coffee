@@ -59,30 +59,12 @@ parsePhotoObj = {
 }
 
 
-loopback_component_storage_path = "../../node_modules/loopback-component-storage/lib/"
-datasources_json_storage = {
-  "name": "storage",
-  "connector": "loopback-component-storage",
-  "provider":"filesystem",
-  "root":"svc/storage",
-  "_options": {
-    "getFileName":"",
-    "allowedContentTypes":"",
-    "maxFileSize":"",
-    "acl": ""
-  }
-}
-handler = require( loopback_component_storage_path + './storage-handler');
-factory = require( loopback_component_storage_path + './factory');
+
 Archiver = require('archiver')
 
 module.exports = (Container)->
 	# Add to REST API
 	Container.downloadContainer = (container, files, res, cb)->
-		## same as download(0)
-		# provider = factory.createClient(datasources_json_storage);
-		# return handler.download(provider, null, res, container, files, cb);
-
 		zip = Archiver('zip')
 		zipFilename = container + '.zip'
 		# console.log 'attachment='+ zipFilename
@@ -101,8 +83,8 @@ module.exports = (Container)->
 						# , {}
 			)
 			# console.log '_appendFile, reader=', _.keys reader
-			zip.append( reader, {name:filename, dest: container} )
-			console.log "appending", {name:filename, dest: container}
+			zip.append( reader, {name:filename} )
+			console.log "appending", {name:filename}
 			# listen for zip.on 'entry' for completion
 			return
 
