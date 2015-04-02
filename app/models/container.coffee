@@ -58,7 +58,127 @@ parsePhotoObj = {
 		)
 }
 
+
+loopback_component_storage_path = "../../node_modules/loopback-component-storage/lib/"
+datasources_json_storage = {
+  "name": "storage",
+  "connector": "loopback-component-storage",
+  "provider":"filesystem",
+  "root":"svc/storage",
+  "_options": {
+    "getFileName":"",
+    "allowedContentTypes":"",
+    "maxFileSize":"",
+    "acl": ""
+  }
+}
+handler = require( loopback_component_storage_path + './storage-handler');
+factory = require( loopback_component_storage_path + './factory');
+Archiver = require('archiver')
+
 module.exports = (Container)->
+	# Add to REST API
+	Container.downloadContainer = (container, files, res, cb)->
+		## same as download(0)
+		# provider = factory.createClient(datasources_json_storage);
+		# return handler.download(provider, null, res, container, files, cb);
+
+		zip = Archiver('zip')
+		zipFilename = container + '.zip'
+		# console.log 'attachment='+ zipFilename
+
+		# res.attachment( zipFilename )
+		# zip.pipe(res)
+
+		storageService = this
+		_remaining = {} # closure for async handlers
+		# console.log "storageService keys", _.keys storageService
+
+		_appendFile = (zip, container, filename)->
+			# console.log 'appendFile=' + filename
+			reader = storageService.downloadStream( container
+						, filename
+						# , {}
+			)
+			# console.log '_appendFile, reader=', _.keys reader
+			zip.append( reader, {name:filename, dest: container} )
+			console.log "appending", {name:filename, dest: container}
+			# listen for zip.on 'entry' for completion
+			return
+
+		res.on 'close', ()->
+			console.log('Archive wrote %d bytes', zip.pointer())
+			return res.status(200).send('OK').end()		
+
+		# //set the archive name
+		res.attachment(zipFilename);
+
+		# //this is the streaming magic
+		zip.pipe(res);
+
+		zip.on 'error', (err)->
+			console.log 'zip entry error', err
+			res.status(500).send({error: err.message});
+			return		
+
+		zip.on 'entry', (o)->
+			# console.log 'zip entry event, filename=', o.name
+			return _oneComplete(o.name)
+
+		# called when an entry is successfully appended to zip
+		_oneComplete = (filename)-> 
+			delete _remaining[filename]
+			console.log '_oneComplete(): ', {
+				remaining: _.keys _remaining
+				size: zip.pointer()
+			}
+			_finalize() if _.isEmpty _remaining
+			return 
+
+
+		_finalize = ()->
+			console.log 'calling zip.finalize() ...'
+			zip.finalize()
+			return
+
+
+		if files=='all' || _.isEmpty(files)
+			console.log 'downloadContainer, files=', files
+			storageService.getFiles container, (err, ssFiles)->
+
+				_remaining = _.object( _.pluck( ssFiles, 'name'))
+				# console.log 'filenames=', _.keys _remaining
+				ssFiles.forEach (file)->
+					_appendFile zip, container, file.name
+					return
+		else 
+			DELIM = ','
+			filenames = files.split(DELIM)
+			_remaining = _.object( filenames  )
+			console.log 'filenames=', _.keys _remaining
+			_.each filenames , (filename)->
+				_appendFile zip, container, filename
+				return
+				
+
+		return
+
+
+
+
+
+	Container.remoteMethod 'downloadContainer', {
+		shared: true
+		accepts: [
+			{arg: 'container', type: 'string', 'http': {source: 'path'}},
+			{arg: 'files', type: 'string', required: false, 'http': {source: 'path'}},
+			{arg: 'res', type: 'object', 'http': {source: 'res'}}
+		]
+		returns: []
+		http: 
+			verb: 'get', 
+			path: '/:container/downloadContainer/:files'
+	}
 
 	Container.beforeRemote 'upload', (ctx, skip, next)->
 		# create container if necessary
@@ -135,6 +255,8 @@ module.exports = (Container)->
 				return
 			)
 		return
+
+	return # end module.exports
 
 
 

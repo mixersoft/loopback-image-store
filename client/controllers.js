@@ -7,10 +7,10 @@ angular.module('app', ['angularFileUpload'])
     // create a uploader with options
     var uploader = $scope.uploader = $fileUploader.create({
       scope: $scope,                          // to automatically update the html. Default: $rootScope
-      url: '/api/containers/XXX-DEQBCEektV/upload',
+      url: '/api/containers/container1/upload',
       headers: {
         'X-Image-Identifier': 'XXX-2A456415-B1AE-424A-9795-A0625A768EBD/L0/001',
-        'X-Container-Identifier' : 'XXX-DEQBCEektV'
+        'X-Container-Identifier' : 'container1'
       },
       formData: [
         { }
