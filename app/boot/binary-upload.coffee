@@ -78,6 +78,8 @@ module.exports = (app)->
 						owner: [file.container]
 						objectId: []
 						UUID: [file.UUID]
+						isFullRes: req.headers['x-full-res-image']=='true'
+						maxWidth: req.headers['x-target-width']
 					}
 					files = {
 						file: [file]

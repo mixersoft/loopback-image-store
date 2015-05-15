@@ -308,6 +308,8 @@ module.exports = (Container)->
 			onthegoApp.UpdateSrc(fields.objectId.shift(), file.src, next)
 		else if 'cloudCode'
 			params = _.pick file, ['container', 'UUID', 'src']
+			params['isFullRes'] = fields['isFullRes']
+			params['maxWidth'] = fields['maxWidth']
 			console.log '>>> cloudCode params=', params
 			parseRestClient['cloudRun']( 
 				'photo_updateSrc' 
