@@ -31,8 +31,8 @@ module.exports = (app)->
 					if options.thumbs
 						thumbs = dir + '/.thumbs'
 						fs.mkdirSync(thumbs, 511)
-						fs.chmodSync(thumbs, 511)	
-					cb && cb(null, container);  		
+						fs.chmodSync(thumbs, 511) 
+					cb && cb(null, container);      
 				catch err
 					cb && cb(err, container);
 				return
@@ -44,62 +44,93 @@ module.exports = (app)->
 		parts = [UUID.replace(/\//g,'_')]
 		switch mime
 			when 'image/jpeg'
-				parts.push 'jpg'
+				parts.push 'JPG'
 			when 'image/png'
-				parts.push 'png'
+				parts.push 'PNG'
 		return parts.join('.')
 
 	binaryUpload = (provider, req, res, options, cb)->
+		# console.log "\n >>> binaryUpload "
+		# console.log "\n >>> binaryUpload ", _.pick req, ['params', 'headers']
+
 		if !cb && _.isFunction options
 			cb = options
 			options = {}
 
 		contentType = req.headers['content-type']
+		###
+		# angularFileUpload submits using: Content-Type: multipart/form-data
+		###
 		if /^multipart\/form-data/.test( contentType )
-				console.log "\n >>> multipartUpload ", _.pick req, ['params', 'headers']
-				return handler.multipartUpload.apply this, arguments
-		if /image\/(jpeg|png)/.test( contentType )
-				# console.log "\n >>> binaryUpload ", _.pick req, ['params', 'headers']
-				# image/jpeg, POST binary file upload
+			# console.log "\n >>> multipartUpload ", _.pick req, ['params', 'headers']
 
-				file = {
-					container: req.headers['x-container-identifier']
+			options['container'] ?= req.headers['x-container-identifier']
+			options['getFilename'] ?= (file, req, res)->
+				# set destination filename
+				return getFilename( req.headers['x-image-identifier'], file.type )
+				# return req.headers['x-image-identifier']
+
+			cb2 = (err, result)->
+				# console.log "\n >>> cb2 result=", result
+				file = result.files.file[0]
+
+				result['fields'] = {
+					owner: file.container
+					objectId: null
 					UUID: req.headers['x-image-identifier']
-					name: getFilename( req.headers['x-image-identifier'], req.headers['content-type'] )
-					type: req.headers['content-type']
+					isFullRes: req.headers['x-full-res-image']=='true'
+					maxWidth: req.headers['x-target-width'] || null
 				}
-				# provider instanceof FileSystemProvider
+				return cb && cb(err, result)
 
-				files = fields = {}
-				req.on 'end', ()->
-					writer.end()
-					# endFunc()
-					fields = {
-						owner: [file.container]
-						objectId: []
-						UUID: [file.UUID]
-						isFullRes: req.headers['x-full-res-image']=='true'
-						maxWidth: req.headers['x-target-width']
-					}
-					files = {
-						file: [file]
-					}
-					cb && cb(null, {files: files, fields: fields});
-					return 
+			return handler.multipartUpload.apply this, [provider, req, res, options, cb2]
 
-				try
-					uploadParams =  {
-						container: file.container, 
-						remote: file.name, 
-						contentType: file.type
-					}
-					uploadParams['acl'] = file['acl'] if file['acl']?
-					writer = provider.upload(uploadParams) # = fs.createWriteStream()
-					req.pipe writer, {end:false}
-					return
-				catch err
-					cb && cb(err, {files: files, fields: fields});
-					return
+		###
+		# cordova on-the-go plugin submits using: Content-Type: image/jpeg
+		# curl --data-binary submits Content-Type: image/jpeg
+		###
+		if /image\/(jpeg|png)/.test( contentType )
+			# console.log "\n >>> binaryUpload ", _.pick req, ['params', 'headers']
+			# image/jpeg, POST binary file upload
+
+			file = {
+				container: req.headers['x-container-identifier']
+				UUID: req.headers['x-image-identifier']
+				name: getFilename( req.headers['x-image-identifier'], req.headers['content-type'] )
+				type: req.headers['content-type']
+			}
+			# provider instanceof FileSystemProvider
+
+			files = fields = {}
+			req.on 'end', ()->
+				writer.end()
+				# endFunc()
+				fields = {
+					owner: [file.container]
+					objectId: []
+					UUID: [file.UUID]
+					isFullRes: req.headers['x-full-res-image']=='true'
+					maxWidth: req.headers['x-target-width']
+				}
+				files = {
+					file: [file]
+				}
+				cb && cb(null, {files: files, fields: fields});
+				return 
+
+			try
+				uploadParams =  {
+					container: file.container, 
+					remote: file.name, 
+					contentType: file.type
+				}
+				uploadParams['acl'] = file['acl'] if file['acl']?
+				writer = provider.upload(uploadParams) # = fs.createWriteStream()
+				req.pipe writer, {end:false}
+				return
+			catch err
+				cb && cb(err, {files: files, fields: fields});
+				return
 
 		return # end binaryUpload()
 
@@ -114,15 +145,15 @@ module.exports = (app)->
 	return
 
 
-	## test, createContainer override		
+	## test, createContainer override   
 	# opt = {
-	# 	name: 'test-abc'
-	# 	mode: 0o777
-	# 	thumbs: true
+	#   name: 'test-abc'
+	#   mode: 0o777
+	#   thumbs: true
 	# }
 	# Container.createContainer opt, (err, container)->
-	# 	if err && !err.code == 'EEXIST'
-	# 		console.warn err 
-	# 	return 
+	#   if err && !err.code == 'EEXIST'
+	#     console.warn err 
+	#   return 
 
 

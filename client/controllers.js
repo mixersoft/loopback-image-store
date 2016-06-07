@@ -7,10 +7,11 @@ angular.module('app', ['angularFileUpload'])
     // create a uploader with options
     var uploader = $scope.uploader = $fileUploader.create({
       scope: $scope,                          // to automatically update the html. Default: $rootScope
-      url: '/api/containers/container1/upload',
+      url: '/api/containers/fNnreAFrrcsiX4syj/upload',
       headers: {
-        'X-Image-Identifier': 'XXX-2A456415-B1AE-424A-9795-A0625A768EBD/L0/001',
-        'X-Container-Identifier' : 'container1'
+        'X-Image-Identifier': '00000000-081d-405a-a831-cc44ae62c26f',
+        'X-Container-Identifier' : 'fNnreAFrrcsiX4syj',
+        'X-App-Identifier' : 'macata'
       },
       formData: [
         { }
@@ -30,6 +31,15 @@ angular.module('app', ['angularFileUpload'])
       return true;
     });
 
+    uploader.filters.push(
+      function(item, options) {
+        var type;
+        console.info('imageFilter');
+        type = '|' + item.type.slice(item.type.lastIndexOf('/') + 1) + '|';
+        return ~'|jpg|png|jpeg|'.indexOf(type);
+      }
+    )
+
     // REGISTER HANDLERS
 
     uploader.bind('afteraddingfile', function (event, item) {
@@ -46,6 +56,7 @@ angular.module('app', ['angularFileUpload'])
 
     uploader.bind('beforeupload', function (event, item) {
       console.info('Before upload', item);
+      // item.headers['Content-Type'] = item.file.type
     });
 
     uploader.bind('progress', function (event, item, progress) {

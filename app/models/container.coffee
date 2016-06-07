@@ -262,9 +262,10 @@ module.exports = (Container)->
 		# console.log "headers", ctx.req.headers
 
 		# check if container exists
+		container = ctx.req.headers['x-container-identifier'] || params.container
 		params = ctx.req.params
 		options = {
-			name: params.container
+			name: container
 			mode: 0o777
 			thumbs: true
 		}
@@ -284,33 +285,44 @@ module.exports = (Container)->
 	# Note: /api/containers/[container]/upload
 	Container.afterRemote 'upload', (ctx, affectedModelInstance, next)->
 		# console.log '\n\n afterRemote container.upload', affectedModelInstance.result
-		# file=[{"container":"container1","name":"IMG_0799.PNG","type":"image/png"}]
+		# file=[{"container":"[owenrId]","name":"IMG_0799.PNG","type":"image/png"}]
 		# fields={
 		# 	owner, 			req.headers['x-container-identifier']
 		# 	objectId, 
 		# 	UUID, 			req.headers['x-image-identifier']
 		# 	isFullRes, 	req.headers['x-full-res-image'] = ['true'|'false']
 		# 	maxWidth, 	req.headers['x-target-width'] int
-		# }		
-		file = affectedModelInstance.result.files.file.shift()
+		# }
+
+		file = affectedModelInstance.result.files.file[0]
 		fields = affectedModelInstance.result.fields
-
-		file.UUID = file.name.split('.')[0] if !file.UUID #  UUID = CHAR(36) + '/L0/001'
-		file.owner = file.container
-
 
 		# IMG_SERVER.host = ctx.req.headers.host
 		# serve files from http://snappi.snaphappi.com/svc/storage over apache2 with auto-render
-		file.src = [IMG_SERVER.host , IMG_SERVER.baseUrl , file.owner , file.name].join('/')
+		fields['src'] = [IMG_SERVER.host , IMG_SERVER.baseUrl , file.container , file.name].join('/')
+		fields['UUID'] ?= file.name.split('.')[0] #  UUID = CHAR(36) + '/L0/001'
 
+		switch ctx.req.headers['x-app-identifier']
+			when 'macata'
+				ctx.res.set('Location', fields.src)
+				# console.log "\n $$$ afterRemote, when macata, file=", file
+				# console.log "\n $$$ afterRemote, when macata, fields=", fields
+				return next()
+
+		# when (on-the-go)
 		if !_.isEmpty fields?.objectId
 			# tested OK
-			onthegoApp.UpdateSrc(fields.objectId.shift(), file.src, next)
-		else if 'cloudCode'
-			params = _.pick file, ['container', 'UUID', 'src']
-			params['isFullRes'] = fields['isFullRes']
-			params['maxWidth'] = fields['maxWidth']
-			console.log '>>> cloudCode params=', params
+			onthegoApp.UpdateSrc(fields.objectId.shift(), fields.src, next)
+
+		else if 'cloudCode' 		# snappi-onthego
+			params = {
+				'container': fields['owner']
+				'UUID': fields['UUID']
+				'src': fields['src']
+				'isFullRes': fields['isFullRes']
+				'maxWidth': fields['maxWidth']
+			}
+			# console.log '>>> cloudCode params=', params
 			parseRestClient['cloudRun']( 
 				'photo_updateSrc' 
 				, params
@@ -325,7 +337,7 @@ module.exports = (Container)->
 							return next(err)
 						console.log body?['result'] || body || res
 						if ctx.req.headers['content-type'] == 'image/jpeg'
-							return ctx.res.set('Location', file.src).status(201).send()
+							return ctx.res.set('Location', fields.src).status(201).send()
 						else 
 							return next()
 			)
@@ -339,9 +351,9 @@ module.exports = (Container)->
 			onthegoApp.GetPhotosWhere(where, (photoObjs)->
 				# console.log "GetPhotosWhere success, photoObjs[0]=", _.pick photoObjs[0], ['UUID', 'owner', 'src', 'workorder']
 				return next() if _.isEmpty photoObjs
-				onthegoApp.UpdateSrc(photoObjs[0].objectId, file.src, ()->
+				onthegoApp.UpdateSrc(photoObjs[0].objectId, fields.src, ()->
 					if ctx.req.headers['content-type'] == 'image/jpeg'
-						return ctx.res.set('Location', file.src).status(201).send()
+						return ctx.res.set('Location', fields.src).status(201).send()
 					else 
 						return next()
 				)

@@ -8,6 +8,7 @@
     "connector": "loopback-component-storage",
     "provider":"filesystem",
     "root":"../svc/storage",
+    "xxx-root":"../svc/storage",
     "_options": {
       "getFileName":"",
       "allowedContentTypes":"",
